@@ -14,7 +14,8 @@ open Shared
 /// The different elements of the completed report.
 type Report =
     { Location: LocationResponse
-      Crimes: CrimeResponse array }
+      Crimes: CrimeResponse array
+      Weather: WeatherResponse }
 
 type ServerState =
     | Idle
@@ -50,13 +51,15 @@ let dojoApi =
 let getResponse postcode = async {
     let! location = dojoApi.GetDistance postcode
     let! crimes = dojoApi.GetCrimes postcode
+    let! weather = dojoApi.GetWeather postcode
     (* Task 4.4 WEATHER: Fetch the weather from the API endpoint you created.
        Then, save its value into the Report below. You'll need to add a new
        field to the Report type first, though! *)
 
     return
         { Location = location
-          Crimes = crimes }
+          Crimes = crimes
+          Weather = weather }
 }
 
 /// The update function knows how to update the model given a message.
@@ -80,7 +83,9 @@ let update msg model =
             Postcode = p
             (* Task 2.2 Validation. Use the Validation.isValidPostcode function to implement client-side form validation.
                Note that the validation is the same shared code that runs on the server! *)
-            ValidationError = None }, Cmd.none
+            ValidationError =
+                if Validation.isValidPostcode p then None
+                else Some "Invalid postcode!" }, Cmd.none
 
     | ErrorMsg e ->
         let errorAlert =
@@ -146,11 +151,12 @@ module ViewParts =
         widget "Map"  [
                 PigeonMaps.map [
                     (* Task 3.2 MAP: Set the center of the map using map.center, supply the lat/long value as input. *)
+                    map.center (lr.Location.LatLong.Latitude, lr.Location.LatLong.Longitude)
 
                     (* Task 3.3 MAP: Update the Zoom to 15. *)
-                    map.zoom 12
+                    map.zoom 15
                     map.height 500
-                    map.markers [
+                    map.markers [makeMarker (lr.Location.LatLong.Latitude, lr.Location.LatLong.Longitude)
                         (* Task 3.4 MAP: Create a marker for the map. Use the makeMarker function above. *)
                     ]
             ]
@@ -178,7 +184,7 @@ module ViewParts =
                                    and display it here instead of an empty string.
                                    Hint: Use sprintf with "%.2f" to round the temperature to 2 decimal points
                                    (look at the locationWidget for an example) *)
-                                Html.td ""
+                                Html.td (sprintf "%.2f C" weatherReport.AverageTemperature)
                             ]
                         ]
                     ]
@@ -229,7 +235,7 @@ let navbar =
                             ]
                             Html.span [
                                 prop.style [ style.color.white ]
-                                prop.text "SAFE Dojo"
+                                prop.text "SAFE Dojo ATF"
                             ]
                         ]
                     ]
@@ -322,11 +328,13 @@ let view (model: Model) dispatch =
                                         (* Task 4.5 WEATHER: Generate the view code for the weather tile
                                            using the weatherWidget function, supplying the weather data
                                            from the report value, and include it here as part of the list *)
+                                           weatherWidget report.Weather
                                     ]
                                 ]
                                 (* Task 3.1 MAP: Call the mapWidget function here, which creates a
                                    widget to display a map using the React ReCharts component. The function
                                    takes in a LocationResponse value as input and returns a ReactElement. *)
+                                mapWidget report.Location
                             ]
                         ]
                         Bulma.column [
